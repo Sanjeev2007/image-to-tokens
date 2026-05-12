@@ -36,6 +36,12 @@ function getSaturation(r: number, g: number, b: number): number {
   return l > 0.5 ? d / (2 - max - min) : d / (max + min);
 }
 
+function euclideanDistance(c1: [number, number, number], c2: [number, number, number]): number {
+  return Math.sqrt(
+    Math.pow(c1[0] - c2[0], 2) + Math.pow(c1[1] - c2[1], 2) + Math.pow(c1[2] - c2[2], 2)
+  );
+}
+
 export function assignRoles(colors: ExtractedColors): SemanticColor[] {
   const bgHex = colors.dominant;
   const [bgR, bgG, bgB] = hexToRgb(bgHex);
@@ -49,7 +55,13 @@ export function assignRoles(colors: ExtractedColors): SemanticColor[] {
     { role: 'text', hex: textHex }
   ];
   
-  const remaining = [...colors.palette];
+  // Filter out any palette colors that are too close to the text color
+  const textRgb = hexToRgb(textHex);
+  let remaining = colors.palette.filter(hex => {
+    const rgb = hexToRgb(hex);
+    return euclideanDistance(rgb, textRgb) >= 30;
+  });
+  
   if (remaining.length === 0) return result;
   
   // Find primary (most saturated remaining color)

@@ -1,9 +1,14 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useDropzone, FileRejection } from 'react-dropzone';
-import { Settings, Upload } from 'lucide-react';
+import { Settings, Upload, Lock, ExternalLink } from 'lucide-react';
 import { extractColors } from './lib/extractColors';
 import { assignRoles, SemanticColor } from './lib/assignRoles';
 import { generateTokensCss } from './lib/generateTokensCss';
+import { generateTailwindConfig } from './lib/generateTailwindConfig';
+import { generateTokensJson } from './lib/generateTokensJson';
+import { downloadZip } from './lib/downloadZip';
+
+type TabId = 'css' | 'tailwind' | 'json' | 'zip';
 
 function App() {
   const [file, setFile] = useState<File | null>(null);
@@ -13,6 +18,9 @@ function App() {
   const [semanticColors, setSemanticColors] = useState<SemanticColor[]>([]);
   const [isExtracting, setIsExtracting] = useState(false);
   const [copied, setCopied] = useState<'idle' | 'copied' | 'error'>('idle');
+  
+  const [activeTab, setActiveTab] = useState<TabId>('css');
+  const isPaid = false; // Hardcoded for Hour 5
 
   const handleCopy = async (text: string) => {
     try {
@@ -109,11 +117,24 @@ function App() {
     maxFiles: 1,
   });
 
-  const tokensCssOutput = semanticColors.length > 0 ? generateTokensCss(semanticColors) : '';
+  const getActiveTabContent = () => {
+    if (semanticColors.length === 0) return '';
+    if (activeTab === 'css') return generateTokensCss(semanticColors);
+    if (activeTab === 'tailwind') return generateTailwindConfig(semanticColors);
+    if (activeTab === 'json') return generateTokensJson(semanticColors);
+    return '/* ZIP bundle includes tokens.css, tailwind.config.js, tokens.json, and a README.md */';
+  };
+
+  const tabs: { id: TabId; label: string; pro: boolean }[] = [
+    { id: 'css', label: 'tokens.css', pro: false },
+    { id: 'tailwind', label: 'tailwind.config.js', pro: true },
+    { id: 'json', label: 'tokens.json', pro: true },
+    { id: 'zip', label: 'Download ZIP', pro: true },
+  ];
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <header className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
+      <header className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between z-50">
         <h1 className="font-semibold text-gray-900">Image to Design Tokens</h1>
         <button
           aria-label="Settings"
@@ -154,7 +175,7 @@ function App() {
               <p className="text-gray-500 italic text-sm">Extracting colors…</p>
             ) : semanticColors.length > 0 ? (
               <div className="w-full mt-6">
-                <div className="flex flex-wrap justify-center gap-4 max-w-2xl mx-auto mb-12">
+                <div className="flex flex-wrap justify-center gap-4 max-w-2xl mx-auto mb-10">
                   {semanticColors.map((sc, i) => (
                     <div key={`${sc.hex}-${i}`} className="flex flex-col items-center gap-1">
                       <span className="text-xs font-medium text-gray-700 lowercase mb-1">{sc.role}</span>
@@ -169,17 +190,68 @@ function App() {
                 </div>
                 
                 <div className="max-w-2xl mx-auto text-left">
-                  <h3 className="text-sm font-mono text-gray-700 mb-2">tokens.css</h3>
-                  <div className="relative bg-gray-900 rounded-lg p-6 overflow-hidden">
-                    <button
-                      onClick={() => handleCopy(tokensCssOutput)}
-                      className="absolute top-4 right-4 px-3 py-1 text-xs font-medium rounded bg-gray-700 text-gray-200 hover:bg-gray-600 transition-colors"
-                    >
-                      {copied === 'copied' ? 'Copied!' : copied === 'error' ? 'Failed' : 'Copy'}
-                    </button>
-                    <pre className="text-gray-100 font-mono text-sm overflow-x-auto">
-                      <code>{tokensCssOutput}</code>
-                    </pre>
+                  <div className="flex overflow-x-auto border-b border-gray-200 mb-4 no-scrollbar">
+                    {tabs.map(tab => (
+                      <button
+                        key={tab.id}
+                        onClick={() => {
+                          if (tab.id === 'zip' && isPaid) {
+                            downloadZip(semanticColors);
+                            return;
+                          }
+                          setActiveTab(tab.id);
+                        }}
+                        className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-b-2 whitespace-nowrap transition-colors ${
+                          activeTab === tab.id 
+                            ? 'border-gray-900 text-gray-900' 
+                            : 'border-transparent text-gray-500 hover:text-gray-700'
+                        }`}
+                      >
+                        {tab.label}
+                        {tab.pro && !isPaid && <Lock size={14} className="text-gray-400" />}
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="relative bg-gray-900 rounded-lg overflow-hidden min-h-[300px]">
+                    {activeTab !== 'css' && !isPaid ? (
+                      <>
+                        <div className="absolute inset-0 blur-[3px] opacity-40 p-6 pointer-events-none select-none">
+                          <pre className="text-gray-100 font-mono text-sm overflow-hidden">
+                             <code>{getActiveTabContent()}</code>
+                          </pre>
+                        </div>
+                        <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-900/60 z-10 px-4">
+                          <div className="bg-white p-6 rounded-xl shadow-xl max-w-sm w-full text-center">
+                            <div className="mx-auto bg-gray-100 w-12 h-12 rounded-full flex items-center justify-center mb-4">
+                              <Lock className="text-gray-600" size={24} />
+                            </div>
+                            <h3 className="text-lg font-bold text-gray-900 mb-2">Unlock with $5 lifetime</h3>
+                            <p className="text-sm text-gray-600 mb-6">Tailwind config, JSON, and ZIP — pay once, use forever</p>
+                            <a 
+                              href="https://gumroad.com/l/image-to-tokens" 
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center justify-center gap-2 bg-gray-900 text-white px-5 py-2.5 rounded-lg font-medium hover:bg-gray-800 transition-colors w-full"
+                            >
+                              Buy on Gumroad <ExternalLink size={16} />
+                            </a>
+                          </div>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="p-6 h-full overflow-y-auto">
+                        <button
+                          onClick={() => handleCopy(getActiveTabContent())}
+                          className="absolute top-4 right-4 px-3 py-1.5 text-xs font-medium rounded bg-gray-700 text-gray-200 hover:bg-gray-600 transition-colors"
+                        >
+                          {copied === 'copied' ? 'Copied!' : copied === 'error' ? 'Failed' : 'Copy'}
+                        </button>
+                        <pre className="text-gray-100 font-mono text-sm">
+                          <code>{getActiveTabContent()}</code>
+                        </pre>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
