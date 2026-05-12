@@ -2,13 +2,14 @@ import { useState, useCallback, useEffect } from 'react';
 import { useDropzone, FileRejection } from 'react-dropzone';
 import { Settings, Upload } from 'lucide-react';
 import { extractColors } from './lib/extractColors';
+import { assignRoles, SemanticColor } from './lib/assignRoles';
 
 function App() {
   const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   
-  const [colors, setColors] = useState<string[]>([]);
+  const [semanticColors, setSemanticColors] = useState<SemanticColor[]>([]);
   const [isExtracting, setIsExtracting] = useState(false);
 
   useEffect(() => {
@@ -44,7 +45,7 @@ function App() {
 
   useEffect(() => {
     if (!file) {
-      setColors([]);
+      setSemanticColors([]);
       return;
     }
     
@@ -55,12 +56,12 @@ function App() {
       try {
         const result = await extractColors(file);
         if (isMounted) {
-          setColors(result);
+          setSemanticColors(assignRoles(result));
         }
       } catch (err) {
         if (isMounted) {
           setError('Could not extract colors from this image.');
-          setColors([]);
+          setSemanticColors([]);
         }
       } finally {
         if (isMounted) {
@@ -136,16 +137,17 @@ function App() {
 
             {isExtracting ? (
               <p className="text-gray-500 italic text-sm">Extracting colors…</p>
-            ) : colors.length > 0 ? (
+            ) : semanticColors.length > 0 ? (
               <div className="flex flex-wrap justify-center gap-4 mt-6 max-w-2xl mx-auto">
-                {colors.map((hex, i) => (
-                  <div key={`${hex}-${i}`} className="flex flex-col items-center gap-1">
+                {semanticColors.map((sc, i) => (
+                  <div key={`${sc.hex}-${i}`} className="flex flex-col items-center gap-1">
+                    <span className="text-xs font-medium text-gray-700 lowercase mb-1">{sc.role}</span>
                     <div
                       className="w-16 h-16 rounded-lg border border-gray-200 shadow-sm"
-                      style={{ backgroundColor: hex }}
-                      aria-label={hex}
+                      style={{ backgroundColor: sc.hex }}
+                      aria-label={sc.hex}
                     />
-                    <span className="text-xs font-mono text-gray-600">{hex}</span>
+                    <span className="text-xs font-mono text-gray-600 mt-1">{sc.hex}</span>
                   </div>
                 ))}
               </div>
