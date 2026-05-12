@@ -7,5 +7,6 @@ declare module 'color-thief-ts' {
   }
   export default class ColorThief {
     getPalette(sourceImage: HTMLImageElement | HTMLCanvasElement, colorCount: number, opts?: PaletteOptions): any[];
+    getColor(sourceImage: HTMLImageElement | HTMLCanvasElement, opts?: PaletteOptions): any;
   }
 }

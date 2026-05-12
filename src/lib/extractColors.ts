@@ -1,5 +1,10 @@
 import ColorThief from 'color-thief-ts';
 
+export interface ExtractedColors {
+  dominant: string;
+  palette: string[];
+}
+
 function clamp(val: number): number {
   return Math.max(0, Math.min(255, Math.round(val)));
 }
@@ -30,7 +35,7 @@ function parseColor(c: any): [number, number, number] | null {
   return null;
 }
 
-export async function extractColors(file: File): Promise<string[]> {
+export async function extractColors(file: File): Promise<ExtractedColors> {
   return new Promise((resolve, reject) => {
     const url = URL.createObjectURL(file);
     const img = new Image();
@@ -39,7 +44,6 @@ export async function extractColors(file: File): Promise<string[]> {
         const canvas = document.createElement('canvas');
         canvas.width = img.width;
         canvas.height = img.height;
-        // Fix for color-thief-ts canvas compatibility
         (canvas as any).naturalWidth = img.width;
         (canvas as any).naturalHeight = img.height;
         
@@ -52,7 +56,13 @@ export async function extractColors(file: File): Promise<string[]> {
         
         const colorThief = new ColorThief();
         const rawPalette = colorThief.getPalette(canvas as any, 8, { quality: 1 });
+        const rawDominant = colorThief.getColor(canvas as any, { quality: 1 });
+        
         console.log('color-thief palette sample:', rawPalette?.[0]);
+        console.log('color-thief dominant color:', rawDominant);
+        
+        const parsedDominant = parseColor(rawDominant);
+        const dom: [number, number, number] = parsedDominant || [255, 255, 255];
         
         const normalized = (rawPalette || []).map(parseColor).filter(Boolean) as [number, number, number][];
         const kept: [number, number, number][] = [];
@@ -60,7 +70,13 @@ export async function extractColors(file: File): Promise<string[]> {
           if (!kept.some(k => euclideanDistance(color, k) < 25)) kept.push(color);
         }
         
-        resolve(kept.map(c => toHex(c[0], c[1], c[2])));
+        // Remove palette colors close to dominant (distance < 30)
+        const finalPalette = kept.filter(c => euclideanDistance(c, dom) >= 30);
+        
+        resolve({
+          dominant: toHex(dom[0], dom[1], dom[2]),
+          palette: finalPalette.map(c => toHex(c[0], c[1], c[2]))
+        });
         URL.revokeObjectURL(url);
       } catch (e) { reject(e); URL.revokeObjectURL(url); }
     };

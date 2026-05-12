@@ -1,3 +1,5 @@
+import { ExtractedColors } from './extractColors';
+
 export interface SemanticColor {
   role: string;
   hex: string;
@@ -34,10 +36,8 @@ function getSaturation(r: number, g: number, b: number): number {
   return l > 0.5 ? d / (2 - max - min) : d / (max + min);
 }
 
-export function assignRoles(hexColors: string[]): SemanticColor[] {
-  if (hexColors.length === 0) return [];
-  
-  const bgHex = hexColors[0];
+export function assignRoles(colors: ExtractedColors): SemanticColor[] {
+  const bgHex = colors.dominant;
   const [bgR, bgG, bgB] = hexToRgb(bgHex);
   const bgLuminance = getWcagLuminance(bgR, bgG, bgB);
   
@@ -49,7 +49,7 @@ export function assignRoles(hexColors: string[]): SemanticColor[] {
     { role: 'text', hex: textHex }
   ];
   
-  const remaining = hexColors.slice(1);
+  const remaining = [...colors.palette];
   if (remaining.length === 0) return result;
   
   // Find primary (most saturated remaining color)
@@ -59,7 +59,7 @@ export function assignRoles(hexColors: string[]): SemanticColor[] {
   for (let i = 0; i < remaining.length; i++) {
     const [r, g, b] = hexToRgb(remaining[i]);
     const sat = getSaturation(r, g, b);
-    // If tie, earlier index (more dominant) wins because > strictly requires higher
+    // If tie, earlier index wins
     if (sat > maxSaturation) {
       maxSaturation = sat;
       primaryIndex = i;
