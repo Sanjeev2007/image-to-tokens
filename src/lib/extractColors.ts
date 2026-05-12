@@ -35,6 +35,33 @@ function parseColor(c: any): [number, number, number] | null {
   return null;
 }
 
+function findDominantViaHistogram(ctx: CanvasRenderingContext2D, width: number, height: number): [number, number, number] {
+  const imageData = ctx.getImageData(0, 0, width, height);
+  const data = imageData.data;
+  const counts = new Map<string, number>();
+  
+  let maxCount = 0;
+  let dominantKey = "255,255,255";
+  
+  for (let i = 0; i < data.length; i += 4) {
+    const r = data[i] & 0xF8;
+    const g = data[i + 1] & 0xF8;
+    const b = data[i + 2] & 0xF8;
+    
+    const key = `${r},${g},${b}`;
+    const count = (counts.get(key) || 0) + 1;
+    counts.set(key, count);
+    
+    if (count > maxCount) {
+      maxCount = count;
+      dominantKey = key;
+    }
+  }
+  
+  const [r, g, b] = dominantKey.split(',').map(Number);
+  return [r, g, b];
+}
+
 export async function extractColors(file: File): Promise<ExtractedColors> {
   return new Promise((resolve, reject) => {
     const url = URL.createObjectURL(file);
@@ -55,14 +82,12 @@ export async function extractColors(file: File): Promise<ExtractedColors> {
         ctx.drawImage(img, 0, 0);
         
         const colorThief = new ColorThief();
-        const rawPalette = colorThief.getPalette(canvas as any, 8, { quality: 1 });
-        const rawDominant = colorThief.getColor(canvas as any, { quality: 1 });
+        const rawPalette = colorThief.getPalette(canvas as any, 8, 1 as any);
+        
+        const dom = findDominantViaHistogram(ctx, canvas.width, canvas.height);
         
         console.log('color-thief palette sample:', rawPalette?.[0]);
-        console.log('color-thief dominant color:', rawDominant);
-        
-        const parsedDominant = parseColor(rawDominant);
-        const dom: [number, number, number] = parsedDominant || [255, 255, 255];
+        console.log('histogram dominant color:', dom);
         
         const normalized = (rawPalette || []).map(parseColor).filter(Boolean) as [number, number, number][];
         const kept: [number, number, number][] = [];
