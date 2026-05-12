@@ -1,11 +1,15 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useDropzone, FileRejection } from 'react-dropzone';
 import { Settings, Upload } from 'lucide-react';
+import { extractColors } from './lib/extractColors';
 
 function App() {
   const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  
+  const [colors, setColors] = useState<string[]>([]);
+  const [isExtracting, setIsExtracting] = useState(false);
 
   useEffect(() => {
     if (!file) {
@@ -15,6 +19,61 @@ function App() {
     const url = URL.createObjectURL(file);
     setPreviewUrl(url);
     return () => URL.revokeObjectURL(url);
+  }, [file]);
+
+  useEffect(() => {
+    const handlePaste = (e: ClipboardEvent) => {
+      const items = e.clipboardData?.items;
+      if (!items) return;
+      
+      for (let i = 0; i < items.length; i++) {
+        if (items[i].type.startsWith('image/')) {
+          const pastedFile = items[i].getAsFile();
+          if (pastedFile) {
+            setError(null);
+            setFile(pastedFile);
+          }
+          break;
+        }
+      }
+    };
+
+    window.addEventListener('paste', handlePaste);
+    return () => window.removeEventListener('paste', handlePaste);
+  }, []);
+
+  useEffect(() => {
+    if (!file) {
+      setColors([]);
+      return;
+    }
+    
+    let isMounted = true;
+    
+    const extract = async () => {
+      setIsExtracting(true);
+      try {
+        const result = await extractColors(file);
+        if (isMounted) {
+          setColors(result);
+        }
+      } catch (err) {
+        if (isMounted) {
+          setError('Could not extract colors from this image.');
+          setColors([]);
+        }
+      } finally {
+        if (isMounted) {
+          setIsExtracting(false);
+        }
+      }
+    };
+    
+    extract();
+    
+    return () => {
+      isMounted = false;
+    };
   }, [file]);
 
   const onDrop = useCallback((accepted: File[], rejected: FileRejection[]) => {
@@ -74,6 +133,23 @@ function App() {
             >
               Remove
             </button>
+
+            {isExtracting ? (
+              <p className="text-gray-500 italic text-sm">Extracting colors…</p>
+            ) : colors.length > 0 ? (
+              <div className="flex flex-wrap justify-center gap-4 mt-6 max-w-2xl mx-auto">
+                {colors.map((hex, i) => (
+                  <div key={`${hex}-${i}`} className="flex flex-col items-center gap-1">
+                    <div
+                      className="w-16 h-16 rounded-lg border border-gray-200 shadow-sm"
+                      style={{ backgroundColor: hex }}
+                      aria-label={hex}
+                    />
+                    <span className="text-xs font-mono text-gray-600">{hex}</span>
+                  </div>
+                ))}
+              </div>
+            ) : null}
           </div>
         ) : (
           <>
@@ -88,7 +164,7 @@ function App() {
               <input {...getInputProps()} />
               <Upload className="mx-auto text-gray-400 mb-3" size={36} />
               <p className="text-gray-600">
-                Drop an image here, or click to browse
+                Drop an image, click to browse, or paste from clipboard
               </p>
               <p className="text-xs text-gray-400 mt-1">
                 PNG, JPG, or WebP — one image at a time
