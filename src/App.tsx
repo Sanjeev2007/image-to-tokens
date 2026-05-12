@@ -3,6 +3,7 @@ import { useDropzone, FileRejection } from 'react-dropzone';
 import { Settings, Upload } from 'lucide-react';
 import { extractColors } from './lib/extractColors';
 import { assignRoles, SemanticColor } from './lib/assignRoles';
+import { generateTokensCss } from './lib/generateTokensCss';
 
 function App() {
   const [file, setFile] = useState<File | null>(null);
@@ -11,6 +12,18 @@ function App() {
   
   const [semanticColors, setSemanticColors] = useState<SemanticColor[]>([]);
   const [isExtracting, setIsExtracting] = useState(false);
+  const [copied, setCopied] = useState<'idle' | 'copied' | 'error'>('idle');
+
+  const handleCopy = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied('copied');
+      setTimeout(() => setCopied('idle'), 1500);
+    } catch (e) {
+      setCopied('error');
+      setTimeout(() => setCopied('idle'), 1500);
+    }
+  };
 
   useEffect(() => {
     if (!file) {
@@ -96,6 +109,8 @@ function App() {
     maxFiles: 1,
   });
 
+  const tokensCssOutput = semanticColors.length > 0 ? generateTokensCss(semanticColors) : '';
+
   return (
     <div className="min-h-screen bg-gray-50">
       <header className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
@@ -108,8 +123,8 @@ function App() {
         </button>
       </header>
 
-      <main className="max-w-2xl mx-auto px-6 py-16">
-        <div className="text-center mb-10">
+      <main className="max-w-2xl mx-auto px-6 py-16 text-center">
+        <div className="mb-10">
           <h2 className="text-4xl font-bold text-gray-900 mb-3">
             Drop an image. Get production-ready design tokens.
           </h2>
@@ -138,18 +153,35 @@ function App() {
             {isExtracting ? (
               <p className="text-gray-500 italic text-sm">Extracting colors…</p>
             ) : semanticColors.length > 0 ? (
-              <div className="flex flex-wrap justify-center gap-4 mt-6 max-w-2xl mx-auto">
-                {semanticColors.map((sc, i) => (
-                  <div key={`${sc.hex}-${i}`} className="flex flex-col items-center gap-1">
-                    <span className="text-xs font-medium text-gray-700 lowercase mb-1">{sc.role}</span>
-                    <div
-                      className="w-16 h-16 rounded-lg border border-gray-200 shadow-sm"
-                      style={{ backgroundColor: sc.hex }}
-                      aria-label={sc.hex}
-                    />
-                    <span className="text-xs font-mono text-gray-600 mt-1">{sc.hex}</span>
+              <div className="w-full mt-6">
+                <div className="flex flex-wrap justify-center gap-4 max-w-2xl mx-auto mb-12">
+                  {semanticColors.map((sc, i) => (
+                    <div key={`${sc.hex}-${i}`} className="flex flex-col items-center gap-1">
+                      <span className="text-xs font-medium text-gray-700 lowercase mb-1">{sc.role}</span>
+                      <div
+                        className="w-16 h-16 rounded-lg border border-gray-200 shadow-sm"
+                        style={{ backgroundColor: sc.hex }}
+                        aria-label={sc.hex}
+                      />
+                      <span className="text-xs font-mono text-gray-600 mt-1">{sc.hex}</span>
+                    </div>
+                  ))}
+                </div>
+                
+                <div className="max-w-2xl mx-auto text-left">
+                  <h3 className="text-sm font-mono text-gray-700 mb-2">tokens.css</h3>
+                  <div className="relative bg-gray-900 rounded-lg p-6 overflow-hidden">
+                    <button
+                      onClick={() => handleCopy(tokensCssOutput)}
+                      className="absolute top-4 right-4 px-3 py-1 text-xs font-medium rounded bg-gray-700 text-gray-200 hover:bg-gray-600 transition-colors"
+                    >
+                      {copied === 'copied' ? 'Copied!' : copied === 'error' ? 'Failed' : 'Copy'}
+                    </button>
+                    <pre className="text-gray-100 font-mono text-sm overflow-x-auto">
+                      <code>{tokensCssOutput}</code>
+                    </pre>
                   </div>
-                ))}
+                </div>
               </div>
             ) : null}
           </div>
