@@ -139,7 +139,7 @@ function App() {
 
       <main className="max-w-2xl mx-auto px-6 py-16 text-center">
         <div className="mb-10">
-          <h2 className="text-4xl font-bold text-gray-900 mb-3">
+          <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-4">
             Drop an image. Get production-ready design tokens.
           </h2>
           <p className="text-gray-600 max-w-lg mx-auto">
@@ -206,7 +206,7 @@ function App() {
                   </div>
 
                   <div className="relative bg-gray-900 rounded-lg overflow-hidden min-h-[300px]">
-                    <div className="p-6 h-full overflow-y-auto">
+                    <div className="p-6 h-full overflow-auto">
                       <button
                         onClick={() => handleCopy(getActiveTabContent())}
                         className="absolute top-4 right-4 px-3 py-1.5 text-xs font-medium rounded bg-gray-700 text-gray-200 hover:bg-gray-600 transition-colors"
@@ -226,7 +226,7 @@ function App() {
           <>
             <div
               {...getRootProps()}
-              className={`border-2 border-dashed rounded-xl p-12 text-center cursor-pointer transition ${
+              className={`border-2 border-dashed rounded-xl p-8 sm:p-12 text-center cursor-pointer transition ${
                 isDragActive
                   ? 'border-blue-500 bg-blue-50'
                   : 'border-gray-300 hover:border-gray-400 bg-white'
