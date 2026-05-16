@@ -1,13 +1,12 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useDropzone, FileRejection } from 'react-dropzone';
-import { Settings, Upload, Lock, ExternalLink, X } from 'lucide-react';
+import { Upload, ExternalLink } from 'lucide-react';
 import { extractColors } from './lib/extractColors';
 import { assignRoles, SemanticColor } from './lib/assignRoles';
 import { generateTokensCss } from './lib/generateTokensCss';
 import { generateTailwindConfig } from './lib/generateTailwindConfig';
 import { generateTokensJson } from './lib/generateTokensJson';
 import { downloadZip } from './lib/downloadZip';
-import { verifyLicense } from './lib/verifyLicense';
 
 type TabId = 'css' | 'tailwind' | 'json' | 'zip';
 
@@ -21,65 +20,6 @@ function App() {
   const [copied, setCopied] = useState<'idle' | 'copied' | 'error'>('idle');
   
   const [activeTab, setActiveTab] = useState<TabId>('css');
-  const [isPaid, setIsPaid] = useState<boolean>(false);
-
-  // Settings modal state
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [licenseInput, setLicenseInput] = useState('');
-  const [isVerifying, setIsVerifying] = useState(false);
-  const [licenseError, setLicenseError] = useState<string | null>(null);
-
-  useEffect(() => {
-    const checkLicense = async () => {
-      const savedKey = localStorage.getItem('imgtokens.license');
-      if (savedKey) {
-        const result = await verifyLicense(savedKey);
-        if (result.success) {
-          setIsPaid(true);
-        } else {
-          localStorage.removeItem('imgtokens.license');
-          setIsPaid(false);
-        }
-      }
-    };
-    checkLicense();
-  }, []);
-
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && isSettingsOpen) {
-        setIsSettingsOpen(false);
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isSettingsOpen]);
-
-  const handleVerify = async () => {
-    if (!licenseInput.trim()) return;
-    setIsVerifying(true);
-    setLicenseError(null);
-    const result = await verifyLicense(licenseInput.trim());
-    setIsVerifying(false);
-    
-    if (result.success) {
-      localStorage.setItem('imgtokens.license', licenseInput.trim());
-      setIsPaid(true);
-      setLicenseInput('');
-      if (activeTab === 'zip') {
-        setActiveTab('css');
-      }
-    } else {
-      setLicenseError(result.message || 'Verification failed');
-    }
-  };
-
-  const handleRemoveLicense = () => {
-    localStorage.removeItem('imgtokens.license');
-    setIsPaid(false);
-    setLicenseInput('');
-    setLicenseError(null);
-  };
 
   const handleCopy = async (text: string) => {
     try {
@@ -184,86 +124,26 @@ function App() {
     return '/* ZIP bundle includes tokens.css, tailwind.config.js, tokens.json, and a README.md */';
   };
 
-  const tabs: { id: TabId; label: string; pro: boolean }[] = [
-    { id: 'css', label: 'tokens.css', pro: false },
-    { id: 'tailwind', label: 'tailwind.config.js', pro: true },
-    { id: 'json', label: 'tokens.json', pro: true },
-    { id: 'zip', label: 'Download ZIP', pro: true },
+  const tabs: { id: TabId; label: string }[] = [
+    { id: 'css', label: 'tokens.css' },
+    { id: 'tailwind', label: 'tailwind.config.js' },
+    { id: 'json', label: 'tokens.json' },
+    { id: 'zip', label: 'Download ZIP' },
   ];
 
   return (
     <div className="min-h-screen bg-gray-50">
       <header className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between z-40">
         <h1 className="font-semibold text-gray-900">Image to Design Tokens</h1>
-        <button
-          onClick={() => setIsSettingsOpen(true)}
-          aria-label="Settings"
-          className="p-2 rounded-lg hover:bg-gray-100 text-gray-600 transition-colors"
-        >
-          <Settings size={20} />
-        </button>
       </header>
-
-      {/* Settings Modal */}
-      {isSettingsOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4">
-          <div className="absolute inset-0" onClick={() => setIsSettingsOpen(false)} />
-          <div className="relative bg-white rounded-xl shadow-2xl max-w-sm w-full p-6" onClick={e => e.stopPropagation()}>
-            <button 
-              className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors"
-              onClick={() => setIsSettingsOpen(false)}
-            >
-              <X size={20} />
-            </button>
-            
-            <h2 className="text-xl font-bold text-gray-900 mb-6">Settings</h2>
-            
-            {isPaid ? (
-              <div>
-                <h3 className="text-sm font-semibold text-gray-900 mb-2">License active</h3>
-                <div className="bg-gray-100 px-3 py-2 rounded text-sm font-mono text-gray-600 mb-4">
-                  ••••-••••-XXXX
-                </div>
-                <button 
-                  onClick={handleRemoveLicense}
-                  className="text-sm text-red-500 hover:text-red-600 font-medium transition-colors"
-                >
-                  Remove license
-                </button>
-              </div>
-            ) : (
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">License key</label>
-                <input 
-                  type="text" 
-                  value={licenseInput}
-                  onChange={e => setLicenseInput(e.target.value)}
-                  placeholder="XXXXXXXX-XXXXXXXX-..."
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm mb-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-                {licenseError && (
-                  <p className="text-xs text-red-500 mb-3">{licenseError}</p>
-                )}
-                <button 
-                  onClick={handleVerify}
-                  disabled={isVerifying || !licenseInput.trim()}
-                  className="w-full bg-gray-900 text-white font-medium py-2 rounded-lg hover:bg-gray-800 disabled:opacity-50 transition-colors"
-                >
-                  {isVerifying ? 'Verifying…' : 'Verify'}
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
 
       <main className="max-w-2xl mx-auto px-6 py-16 text-center">
         <div className="mb-10">
           <h2 className="text-4xl font-bold text-gray-900 mb-3">
             Drop an image. Get production-ready design tokens.
           </h2>
-          <p className="text-gray-600">
-            Free CSS export. $5 lifetime unlocks Tailwind config, JSON, and ZIP.
+          <p className="text-gray-600 max-w-lg mx-auto">
+            Free CSS, Tailwind config, Style Dictionary JSON, and a ZIP bundle. Heuristic v1 — AI version coming soon.
           </p>
         </div>
 
@@ -309,11 +189,7 @@ function App() {
                         key={tab.id}
                         onClick={() => {
                           if (tab.id === 'zip') {
-                            if (isPaid) {
-                              downloadZip(semanticColors);
-                            } else {
-                              setActiveTab('zip');
-                            }
+                            downloadZip(semanticColors);
                             return;
                           }
                           setActiveTab(tab.id);
@@ -325,50 +201,22 @@ function App() {
                         }`}
                       >
                         {tab.label}
-                        {tab.pro && !isPaid && <Lock size={14} className="text-gray-400" />}
                       </button>
                     ))}
                   </div>
 
                   <div className="relative bg-gray-900 rounded-lg overflow-hidden min-h-[300px]">
-                    {activeTab !== 'css' && !isPaid ? (
-                      <>
-                        <div className="absolute inset-0 blur-[3px] opacity-40 p-6 pointer-events-none select-none">
-                          <pre className="text-gray-100 font-mono text-sm overflow-hidden">
-                             <code>{getActiveTabContent()}</code>
-                          </pre>
-                        </div>
-                        <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-900/60 z-10 px-4">
-                          <div className="bg-white p-6 rounded-xl shadow-xl max-w-sm w-full text-center">
-                            <div className="mx-auto bg-gray-100 w-12 h-12 rounded-full flex items-center justify-center mb-4">
-                              <Lock className="text-gray-600" size={24} />
-                            </div>
-                            <h3 className="text-lg font-bold text-gray-900 mb-2">Unlock with $5 lifetime</h3>
-                            <p className="text-sm text-gray-600 mb-6">Tailwind config, JSON, and ZIP — pay once, use forever</p>
-                            <a 
-                              href="https://gumroad.com/l/image-to-tokens" 
-                              target="_blank" 
-                              rel="noopener noreferrer"
-                              className="inline-flex items-center justify-center gap-2 bg-gray-900 text-white px-5 py-2.5 rounded-lg font-medium hover:bg-gray-800 transition-colors w-full"
-                            >
-                              Buy on Gumroad <ExternalLink size={16} />
-                            </a>
-                          </div>
-                        </div>
-                      </>
-                    ) : (
-                      <div className="p-6 h-full overflow-y-auto">
-                        <button
-                          onClick={() => handleCopy(getActiveTabContent())}
-                          className="absolute top-4 right-4 px-3 py-1.5 text-xs font-medium rounded bg-gray-700 text-gray-200 hover:bg-gray-600 transition-colors"
-                        >
-                          {copied === 'copied' ? 'Copied!' : copied === 'error' ? 'Failed' : 'Copy'}
-                        </button>
-                        <pre className="text-gray-100 font-mono text-sm">
-                          <code>{getActiveTabContent()}</code>
-                        </pre>
-                      </div>
-                    )}
+                    <div className="p-6 h-full overflow-y-auto">
+                      <button
+                        onClick={() => handleCopy(getActiveTabContent())}
+                        className="absolute top-4 right-4 px-3 py-1.5 text-xs font-medium rounded bg-gray-700 text-gray-200 hover:bg-gray-600 transition-colors"
+                      >
+                        {copied === 'copied' ? 'Copied!' : copied === 'error' ? 'Failed' : 'Copy'}
+                      </button>
+                      <pre className="text-gray-100 font-mono text-sm text-left">
+                        <code>{getActiveTabContent()}</code>
+                      </pre>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -399,6 +247,28 @@ function App() {
           </>
         )}
       </main>
+      
+      <footer className="border-t border-gray-200 bg-white py-6 mt-auto">
+        <div className="max-w-4xl mx-auto px-6 flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-sm text-gray-500">
+          <span className="flex items-center gap-1">
+            Like it? Support the build — 
+            <a 
+              href="https://sanjeevsky3.gumroad.com/l/image-to-tokens" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="text-gray-900 font-medium hover:text-blue-600 inline-flex items-center gap-1 transition-colors"
+            >
+              Buy me a coffee <ExternalLink size={14} />
+            </a>
+          </span>
+          <span className="hidden sm:inline text-gray-300">|</span>
+          <span>heuristic v1 — AI vision coming soon</span>
+          <span className="hidden sm:inline text-gray-300">|</span>
+          <a href="https://github.com/sanjeevsky3/image-to-tokens" target="_blank" rel="noopener noreferrer" className="hover:text-gray-900 transition-colors">
+            View source on GitHub
+          </a>
+        </div>
+      </footer>
     </div>
   );
 }
